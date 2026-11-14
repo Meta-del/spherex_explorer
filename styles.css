@@ -1,0 +1,744 @@
+:root {
+    color-scheme: dark;
+    --space-black: #02030a;
+    --space-950: #050712;
+    --space-900: #091020;
+    --sky-cyan: #71e5f2;
+    --sky-blue: #629cff;
+    --sky-violet: #aa7cff;
+    --sky-pink: #ff72bd;
+    --sky-gold: #ffc66d;
+    --sky-text: #f5f7ff;
+    --sky-muted: #adbbd2;
+    --page-a: #56d9ed;
+    --page-b: #667dff;
+    --page-c: #b677ff;
+    --sky-border: rgba(163, 204, 244, 0.2);
+}
+
+@property --sky-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    color: var(--sky-text);
+    background: var(--space-black);
+}
+
+.block-container {
+    position: relative;
+    z-index: 1;
+    max-width: 1320px;
+    padding-top: 1.35rem;
+    padding-bottom: 4rem;
+}
+
+[data-testid="stAppViewContainer"] {
+    position: relative;
+    isolation: isolate;
+    overflow-x: hidden;
+    background: radial-gradient( ellipse at 8% 9%, rgba(0, 124, 174, 0.17), transparent 37%), radial-gradient( ellipse at 93% 80%, rgba(137, 39, 174, 0.16), transparent 41%), radial-gradient( ellipse at 49% 48%, rgba(23, 45, 91, 0.11), transparent 48%), linear-gradient(150deg, #02030a 0%, #060916 52%, #080712 100%);
+    background-attachment: fixed;
+}
+
+[data-testid="stAppViewContainer"]::before {
+    content: "";
+    position: fixed;
+    z-index: 0;
+    inset: -20%;
+    pointer-events: none;
+    opacity: 0.72;
+    background-image: radial-gradient(1px 1px at 22px 36px, #fff 75%, transparent), radial-gradient(1px 1px at 130px 91px, #bdefff 72%, transparent), radial-gradient(1.5px 1.5px at 225px 171px, #fff 70%, transparent), radial-gradient(1px 1px at 348px 46px, #e3c9ff 72%, transparent), radial-gradient(1px 1px at 421px 212px, #fff 70%, transparent), radial-gradient(1.5px 1.5px at 532px 127px, #9be9ff 70%, transparent), radial-gradient(1px 1px at 603px 259px, #ffc7ea 72%, transparent);
+    background-size: 650px 340px;
+    animation: star-drift 125s linear infinite;
+}
+
+[data-testid="stAppViewContainer"]::after {
+    content: "";
+    position: fixed;
+    z-index: 0;
+    inset: -24%;
+    pointer-events: none;
+    opacity: 0.62;
+    background: radial-gradient( ellipse at 20% 36%, rgba(0, 198, 209, 0.13), transparent 33%), radial-gradient( ellipse at 77% 65%, rgba(167, 55, 207, 0.17), transparent 39%), radial-gradient( ellipse at 52% 11%, rgba(44, 105, 213, 0.14), transparent 35%), radial-gradient( ellipse at 88% 20%, rgba(234, 89, 157, 0.08), transparent 28%);
+    background-size: 150% 150%;
+    filter: saturate(1.25);
+    animation: nebula-drift 34s ease-in-out infinite alternate, nebula-color 48s linear infinite;
+}
+
+[data-testid="stMain"] {
+    position: relative;
+    z-index: 1;
+    background: transparent;
+}
+
+[data-testid="stHeader"] {
+    z-index: 3;
+    background: rgba(2, 3, 10, 0.62);
+    backdrop-filter: blur(16px);
+}
+
+[data-testid="stToolbar"] {
+    right: 1rem;
+}
+
+[data-testid="stBottom"] {
+    background: transparent;
+}
+
+[data-testid="stAppViewContainer"]:has(.sky-hero-explore) {
+    --page-a: #45d9ee;
+    --page-b: #4f91ff;
+    --page-c: #a477ff;
+}
+
+[data-testid="stAppViewContainer"]:has(.sky-hero-compare) {
+    --page-a: #ff6fbd;
+    --page-b: #8e75ff;
+    --page-c: #57caff;
+}
+
+[data-testid="stAppViewContainer"]:has(.sky-hero-findings) {
+    --page-a: #ffd06c;
+    --page-b: #ff7e9e;
+    --page-c: #bc83ff;
+}
+
+[data-testid="stAppViewContainer"]:has(.sky-hero-guide) {
+    --page-a: #65edbf;
+    --page-b: #58caff;
+    --page-c: #91a0ff;
+}
+
+.sky-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-height: 205px;
+    padding: 2.1rem 2.35rem;
+    margin-bottom: 1.15rem;
+    border: 1px solid rgba(149, 211, 248, 0.28);
+    border-radius: 25px;
+    color: var(--sky-text);
+    background: radial-gradient( circle at 84% 43%, color-mix(in srgb, var(--page-a) 22%, transparent), transparent 23%), linear-gradient( 112deg, rgba(5, 10, 22, 0.98), rgba(9, 24, 46, 0.96) 50%, rgba(24, 16, 43, 0.97));
+    background-size: 180% 180%;
+    box-shadow: 0 28px 75px rgba(0, 0, 0, 0.48), 0 0 42px color-mix(in srgb, var(--page-b) 12%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    animation: hero-arrive 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both, hero-color-sweep 18s ease-in-out infinite alternate;
+}
+
+.sky-hero::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 25%;
+    left: -38%;
+    width: 32%;
+    height: 2px;
+    opacity: 0;
+    transform: rotate(-18deg);
+    background: linear-gradient( 90deg, transparent, var(--page-a), #ffffff, transparent);
+    box-shadow: 0 0 14px var(--page-a), 0 0 35px color-mix(in srgb, var(--page-a) 60%, transparent);
+    animation: meteor-glide 13s ease-in-out infinite;
+}
+
+.sky-hero::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: -10rem;
+    right: 6%;
+    width: 21rem;
+    height: 21rem;
+    border: 1px solid color-mix(in srgb, var(--page-a) 17%, transparent);
+    border-radius: 50%;
+    background: radial-gradient( circle, color-mix(in srgb, var(--page-a) 30%, transparent), color-mix(in srgb, var(--page-b) 13%, transparent) 42%, transparent 72%);
+    box-shadow: 0 0 55px color-mix(in srgb, var(--page-a) 16%, transparent), inset 0 0 35px rgba(255, 255, 255, 0.05);
+    animation: hero-glow 10s ease-in-out infinite alternate;
+}
+
+.sky-hero .eyebrow {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.75rem;
+    color: var(--page-a);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    animation: text-rise 650ms 80ms both;
+}
+
+.sky-hero .eyebrow::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--page-a);
+    box-shadow: 0 0 8px var(--page-a), 0 0 20px color-mix(in srgb, var(--page-a) 70%, transparent);
+    animation: beacon-pulse 2.2s ease-in-out infinite;
+}
+
+.sky-hero h1 {
+    position: relative;
+    z-index: 1;
+    max-width: 920px;
+    margin: 0 0 0.65rem;
+    color: #f8fbff;
+    font-size: clamp(1.9rem, 4.3vw, 2.9rem);
+    font-weight: 780;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    text-shadow: 0 0 26px color-mix(in srgb, var(--page-a) 17%, transparent), 0 5px 26px rgba(0, 0, 0, 0.56);
+    animation: text-rise 740ms 130ms both;
+}
+
+.sky-hero p {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0;
+    color: #d5e2f4;
+    font-size: 1rem;
+    line-height: 1.65;
+    animation: text-rise 820ms 190ms both;
+}
+
+.hero-orbit {
+    position: absolute;
+    top: 51%;
+    right: 13%;
+    width: 165px;
+    height: 165px;
+    border: 1px solid color-mix(in srgb, var(--page-a) 44%, transparent);
+    border-radius: 50%;
+    transform: translateY(-50%) rotate(-26deg) scaleY(0.43);
+    box-shadow: 0 0 28px color-mix(in srgb, var(--page-a) 16%, transparent), inset 0 0 22px rgba(255, 255, 255, 0.04);
+    animation: orbit-rotate 22s linear infinite;
+}
+
+.hero-orbit::before,
+.hero-orbit::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+}
+
+.hero-orbit::before {
+    inset: 18px;
+    border: 1px solid color-mix(in srgb, var(--page-c) 55%, transparent);
+    transform: rotate(58deg) scaleY(1.52);
+    animation: orbit-counter 16s linear infinite;
+}
+
+.hero-orbit::after {
+    top: 15px;
+    right: 28px;
+    width: 14px;
+    height: 14px;
+    background: var(--page-a);
+    box-shadow: 0 0 12px var(--page-a), 0 0 30px color-mix(in srgb, var(--page-a) 75%, transparent);
+}
+
+.sky-nav-current {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 3.1rem;
+    padding: 0.72rem 0.85rem;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(8, 18, 34, 0.96), rgba(14, 26, 47, 0.96)) padding-box, conic-gradient( from var(--sky-angle), var(--page-a), var(--page-b), var(--page-c), var(--page-a)) border-box;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 22px color-mix(in srgb, var(--page-a) 12%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    animation: border-orbit 12s linear infinite;
+}
+
+.sky-nav-current::after {
+    content: "";
+    position: absolute;
+    top: -70%;
+    left: -50%;
+    width: 30%;
+    height: 240%;
+    transform: rotate(24deg);
+    background: linear-gradient( 90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+    animation: nav-sheen 7s ease-in-out infinite;
+}
+
+.sky-nav-icon,
+.sky-nav-number,
+.sky-nav-current strong {
+    position: relative;
+    z-index: 1;
+}
+
+.sky-nav-icon {
+    font-size: 1rem;
+    filter: drop-shadow(0 0 7px var(--page-a));
+}
+
+.sky-nav-number {
+    color: var(--page-a);
+    font-size: 0.7rem;
+    font-weight: 850;
+    letter-spacing: 0.07em;
+}
+
+.sky-nav-current strong {
+    font-size: 0.84rem;
+    font-weight: 750;
+}
+
+[data-testid="stPageLink"] a {
+    display: flex;
+    align-items: center;
+    min-height: 3.1rem;
+    padding: 0.72rem 0.85rem;
+    border: 1px solid rgba(148, 184, 226, 0.17);
+    border-radius: 14px;
+    color: #dce8fb;
+    background: linear-gradient( 145deg, rgba(8, 15, 29, 0.84), rgba(10, 21, 39, 0.78));
+    box-shadow: 0 9px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: transform 240ms ease, border-color 240ms ease, background 240ms ease, box-shadow 240ms ease, color 240ms ease;
+}
+
+[data-testid="stPageLink"] a:hover {
+    transform: perspective(700px) translateY(-4px) rotateX(4deg);
+    border-color: color-mix(in srgb, var(--page-a) 60%, transparent);
+    color: #ffffff;
+    background: linear-gradient( 140deg, color-mix(in srgb, var(--page-a) 19%, #0a1020), color-mix(in srgb, var(--page-b) 18%, #0a1020));
+    box-shadow: 0 17px 30px rgba(0, 0, 0, 0.34), 0 0 24px color-mix(in srgb, var(--page-a) 16%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+[data-testid="stPageLink"] a:active {
+    transform: translateY(0) scale(0.98);
+}
+
+[data-testid="stPageLink"] p {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    color: #f2f6ff;
+    letter-spacing: -0.025em;
+}
+
+h2,
+h3 {
+    text-shadow: 0 4px 22px color-mix(in srgb, var(--page-a) 10%, transparent);
+}
+
+[data-testid="stMarkdownContainer"] h2::after,
+[data-testid="stMarkdownContainer"] h3::after {
+    content: "";
+    display: block;
+    width: min(130px, 28%);
+    height: 2px;
+    margin-top: 0.45rem;
+    border-radius: 5px;
+    background: linear-gradient( 90deg, var(--page-a), var(--page-b), transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--page-a) 35%, transparent);
+}
+
+p,
+li,
+label,
+[data-testid="stMarkdownContainer"] {
+    color: #d8e1ef;
+}
+
+[data-testid="stCaptionContainer"] {
+    color: var(--sky-muted);
+}
+
+[data-testid="stMetric"] {
+    position: relative;
+    padding: 1rem 1.05rem;
+    overflow: hidden;
+    border: 1px solid rgba(142, 192, 228, 0.18);
+    border-radius: 16px;
+    background: linear-gradient( 145deg, rgba(17, 30, 52, 0.88), rgba(7, 14, 29, 0.86));
+    box-shadow: 0 13px 30px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+}
+
+[data-testid="stMetric"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--page-a), var(--page-b), var(--page-c));
+    opacity: 0.86;
+}
+
+[data-testid="stMetric"]:hover {
+    transform: translateY(-3px) scale(1.01);
+    border-color: color-mix(in srgb, var(--page-a) 40%, transparent);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.32), 0 0 22px color-mix(in srgb, var(--page-b) 12%, transparent);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #afc1d9;
+}
+
+[data-testid="stMetricValue"] {
+    color: #f7fbff;
+}
+
+[data-testid="stExpander"] {
+    border: 1px solid rgba(146, 187, 221, 0.2);
+    border-radius: 14px;
+    background: rgba(6, 13, 27, 0.7);
+    box-shadow: 0 9px 26px rgba(0, 0, 0, 0.16);
+    transition: border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
+}
+
+[data-testid="stExpander"]:hover {
+    border-color: color-mix(in srgb, var(--page-a) 35%, transparent);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+[data-testid="stExpander"] summary {
+    color: #edf5ff;
+    font-weight: 680;
+}
+
+[data-testid="stExpander"] summary:hover {
+    color: var(--page-a);
+}
+
+[data-testid="stAlert"] {
+    border: 1px solid rgba(141, 194, 229, 0.2);
+    border-radius: 14px;
+    background: rgba(7, 16, 31, 0.82);
+    backdrop-filter: blur(9px);
+}
+
+[data-testid="stDataFrame"] {
+    border: 1px solid rgba(145, 187, 225, 0.18);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+[data-testid="stProgress"]>div>div {
+    background: linear-gradient(90deg, var(--page-a), var(--page-b), var(--page-c));
+    box-shadow: 0 0 15px color-mix(in srgb, var(--page-a) 48%, transparent);
+}
+
+div[data-baseweb="select"]>div {
+    border-color: rgba(145, 187, 225, 0.26);
+    border-radius: 10px;
+    color: #f3f7ff;
+    background: rgba(7, 15, 30, 0.9);
+}
+
+[data-testid="stNumberInput"] input,
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {
+    border-color: rgba(145, 187, 225, 0.25);
+    border-radius: 10px;
+    color: #f3f7ff;
+    background: rgba(7, 15, 30, 0.9);
+}
+
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+    border-color: var(--page-a);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--page-a) 38%, transparent);
+}
+
+[data-testid="stRadio"]>label,
+[data-testid="stSelectSlider"]>label,
+[data-testid="stSlider"]>label {
+    color: #e4edf8;
+    font-weight: 680;
+}
+
+div.stButton>button,
+[data-testid="stLinkButton"] a {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--page-a) 40%, transparent);
+    border-radius: 12px;
+    color: #f7fbff;
+    background: linear-gradient( 125deg, color-mix(in srgb, var(--page-a) 52%, #101327), color-mix(in srgb, var(--page-b) 48%, #101327) 56%, color-mix(in srgb, var(--page-c) 46%, #101327));
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.13);
+    transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, filter 220ms ease;
+}
+
+div.stButton>button::before,
+[data-testid="stLinkButton"] a::before {
+    content: "";
+    position: absolute;
+    top: -80%;
+    left: -55%;
+    width: 32%;
+    height: 260%;
+    opacity: 0;
+    transform: rotate(23deg);
+    background: linear-gradient( 90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+    pointer-events: none;
+}
+
+div.stButton>button:hover,
+[data-testid="stLinkButton"] a:hover {
+    transform: perspective(650px) translateY(-4px) rotateX(4deg) scale(1.015);
+    border-color: color-mix(in srgb, var(--page-a) 76%, white);
+    color: #ffffff;
+    filter: brightness(1.13) saturate(1.18);
+    box-shadow: 0 17px 30px rgba(0, 0, 0, 0.38), 0 0 25px color-mix(in srgb, var(--page-a) 23%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+div.stButton>button:hover::before,
+[data-testid="stLinkButton"] a:hover::before {
+    opacity: 1;
+    animation: button-sheen 850ms ease-out both;
+}
+
+div.stButton>button:active,
+[data-testid="stLinkButton"] a:active {
+    transform: translateY(0) scale(0.98);
+}
+
+div.stButton>button:disabled {
+    transform: none;
+    filter: saturate(0.42);
+    opacity: 0.56;
+}
+
+div.stButton>button[kind="primary"] {
+    border-color: color-mix(in srgb, var(--page-a) 72%, transparent);
+    background: linear-gradient( 115deg, color-mix(in srgb, var(--page-a) 72%, #11152b), color-mix(in srgb, var(--page-b) 70%, #11152b) 58%, color-mix(in srgb, var(--page-c) 65%, #11152b));
+    box-shadow: 0 13px 28px color-mix(in srgb, var(--page-b) 20%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+hr {
+    border-color: rgba(151, 189, 225, 0.16);
+}
+
+@keyframes star-drift {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(-145px, 72px, 0);
+    }
+}
+
+@keyframes nebula-drift {
+    from {
+        transform: translate3d(-1.4%, 0, 0) scale(1);
+    }
+    to {
+        transform: translate3d(1.6%, 1.3%, 0) scale(1.06);
+    }
+}
+
+@keyframes nebula-color {
+    0% {
+        filter: hue-rotate(0deg) saturate(1.2);
+    }
+    50% {
+        filter: hue-rotate(24deg) saturate(1.48);
+    }
+    100% {
+        filter: hue-rotate(-22deg) saturate(1.26);
+    }
+}
+
+@keyframes hero-arrive {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes hero-color-sweep {
+    from {
+        background-position: 0% 50%;
+    }
+    to {
+        background-position: 100% 50%;
+    }
+}
+
+@keyframes text-rise {
+    from {
+        opacity: 0;
+        transform: translateY(11px);
+        filter: blur(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+@keyframes hero-glow {
+    from {
+        transform: translate3d(-14px, 4px, 0) scale(0.94);
+    }
+    to {
+        transform: translate3d(18px, 20px, 0) scale(1.06);
+    }
+}
+
+@keyframes orbit-rotate {
+    from {
+        transform: translateY(-50%) rotate(-26deg) scaleY(0.43);
+    }
+    to {
+        transform: translateY(-50%) rotate(334deg) scaleY(0.43);
+    }
+}
+
+@keyframes orbit-counter {
+    from {
+        transform: rotate(58deg) scaleY(1.52);
+    }
+    to {
+        transform: rotate(-302deg) scaleY(1.52);
+    }
+}
+
+@keyframes beacon-pulse {
+    0%,
+    100% {
+        opacity: 0.7;
+        transform: scale(0.82);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.18);
+    }
+}
+
+@keyframes meteor-glide {
+    0%,
+    68%,
+    100% {
+        opacity: 0;
+        transform: translate3d(0, 0, 0) rotate(-18deg);
+    }
+    72% {
+        opacity: 1;
+    }
+    86% {
+        opacity: 0;
+        transform: translate3d(560%, 140px, 0) rotate(-18deg);
+    }
+}
+
+@keyframes nav-sheen {
+    0%,
+    64%,
+    100% {
+        transform: translateX(0) rotate(24deg);
+    }
+    84% {
+        transform: translateX(570%) rotate(24deg);
+    }
+}
+
+@keyframes border-orbit {
+    to {
+        --sky-angle: 360deg;
+    }
+}
+
+@keyframes button-sheen {
+    from {
+        transform: translateX(0) rotate(23deg);
+    }
+    to {
+        transform: translateX(560%) rotate(23deg);
+    }
+}
+
+@media (max-width: 760px) {
+    .block-container {
+        padding-top: 0.9rem;
+    }
+    .sky-hero {
+        min-height: 165px;
+        padding: 1.45rem;
+        border-radius: 19px;
+    }
+    .sky-hero::after,
+    .hero-orbit {
+        right: -4.5rem;
+        opacity: 0.52;
+    }
+    .sky-hero p {
+        max-width: 92%;
+        font-size: 0.92rem;
+    }
+    [data-testid="stPageLink"] a,
+    .sky-nav-current {
+        min-height: 2.75rem;
+        padding: 0.58rem;
+    }
+    .sky-nav-current strong,
+    [data-testid="stPageLink"] p {
+        font-size: 0.78rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+    [data-testid="stAppViewContainer"]::before,
+    [data-testid="stAppViewContainer"]::after,
+    .sky-hero,
+    .sky-hero::before,
+    .sky-hero::after,
+    .sky-hero .eyebrow,
+    .sky-hero h1,
+    .sky-hero p,
+    .sky-hero .eyebrow::before,
+    .hero-orbit,
+    .hero-orbit::before,
+    .sky-nav-current,
+    .sky-nav-current::after {
+        animation: none;
+        filter: none;
+    }
+    [data-testid="stPageLink"] a,
+    div.stButton>button,
+    [data-testid="stLinkButton"] a,
+    [data-testid="stMetric"],
+    [data-testid="stExpander"] {
+        transition: none;
+    }
+    [data-testid="stPageLink"] a:hover,
+    div.stButton>button:hover,
+    [data-testid="stLinkButton"] a:hover,
+    [data-testid="stMetric"]:hover {
+        transform: none;
+    }
+}

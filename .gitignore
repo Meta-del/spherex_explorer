@@ -1,0 +1,12 @@
+.venv/
+.venv312/
+venv/
+__pycache__/
+*.py[cod]
+.env
+.streamlit/secrets.toml
+.streamlit/cache/
+*.fits
+*.fit
+*.fts
+*.fits.gz
