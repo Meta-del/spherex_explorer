@@ -3,12 +3,12 @@ import streamlit as st
 from spherex_ui import apply_styles, render_page_header
 
 
-st.set_page_config(page_title="About SPHEREx Explorer", page_icon="🌌", layout="wide")
+st.set_page_config(page_title="Cassiopeia · SPHEREx Sky Explorer", page_icon="🌌", layout="wide")
 
 apply_styles()
 render_page_header(
     "about",
-    "Why explore SPHEREx?",
+    "Cassiopeia · SPHEREx Sky Explorer",
     "A public guide to the mission data, the tool, and what careful image inspection can—and cannot—tell us.",
 )
 
