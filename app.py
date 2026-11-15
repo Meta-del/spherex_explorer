@@ -2406,7 +2406,7 @@ elif st.session_state["workspace"] == "Animation":
             overlay_signature = (
                 active_ra,
                 active_dec,
-                float(fov_arcmin),
+                float(active_fov_arcmin),
                 tuple(
                     catalog_choices[label]
                     for label in selected_catalog_labels
@@ -2414,7 +2414,7 @@ elif st.session_state["workspace"] == "Animation":
             )
             catalog_tables = {}
             catalog_failures = []
-            radius_arcmin = float(fov_arcmin) / np.sqrt(2)
+            radius_arcmin = float(active_fov_arcmin) / np.sqrt(2)
             with st.spinner(
                 "Querying IRSA catalogs for sources in this field…"
             ):
@@ -2448,7 +2448,7 @@ elif st.session_state["workspace"] == "Animation":
     current_overlay_signature = (
         active_ra,
         active_dec,
-        float(fov_arcmin),
+        float(active_fov_arcmin),
         tuple(
             catalog_choices[label]
             for label in selected_catalog_labels
