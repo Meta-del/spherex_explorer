@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from urllib.error import HTTPError, URLError
 from html import escape
+from textwrap import dedent
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
@@ -19,7 +20,13 @@ from astropy.wcs.utils import proj_plane_pixel_area
 from astroquery.ipac.irsa import Irsa
 from reproject import reproject_interp
 
-from spherex_helpers import flagged_pixels, load_cutout, observation_label
+from spherex_helpers import (
+    BACKGROUND_BAD_FLAG_BITS,
+    PHOTOMETRY_BAD_FLAG_BITS,
+    flagged_pixels,
+    load_cutout,
+    observation_label,
+)
 from spherex_ui import apply_styles, render_page_header
 
 
@@ -151,10 +158,8 @@ def render_loading_experience(
         )
     wavelength_dots = ""
     if wavelength_values:
-        low = min(wavelength_values)
-        span = max(wavelength_values) - low
         for wavelength in wavelength_values:
-            position = 50 if span == 0 else (wavelength - low) / span * 100
+            position = max(0.0, min(100.0, (wavelength - 0.75) / 4.25 * 100))
             wavelength_dots += (
                 f'<span class="cosmic-wave-dot" style="left:{position:.2f}%" '
                 f'title="{wavelength:.4f} microns"></span>'
@@ -177,7 +182,7 @@ def render_loading_experience(
         error_class = ""
     receipt_class = " cosmic-results-receipt" if stage == "retrieved" else ""
 
-    return f'''
+    return dedent(f'''
     <section class="cosmic-loader{error_class}{receipt_class}" aria-live="polite">
         <div class="cosmic-loader-topline"><span class="cosmic-live-dot"></span>SPHEREx · LIVE DATA WORKFLOW</div>
         <div class="cosmic-loader-grid">
@@ -203,7 +208,7 @@ def render_loading_experience(
             </div>
         </div>
     </section>
-    '''
+    ''')
 
 
 def make_loading_preview(image):
@@ -577,14 +582,20 @@ def aperture_measurement(image, flags, variance, header, ra, dec, radius):
     image_crop = image[y0:y1, x0:x1]
     flags_crop = flags[y0:y1, x0:x1]
     variance_crop = variance[y0:y1, x0:x1]
-    valid = (
-        np.isfinite(image_crop)
-        & np.isfinite(variance_crop)
-        & (variance_crop >= 0)
-        & ~flagged_pixels(flags_crop)
+    finite_image = np.isfinite(image_crop)
+    valid_variance = np.isfinite(variance_crop) & (variance_crop > 0)
+    aperture_valid = (
+        aperture
+        & finite_image
+        & valid_variance
+        & ~flagged_pixels(flags_crop, PHOTOMETRY_BAD_FLAG_BITS)
     )
-    aperture_valid = aperture & valid
-    annulus_valid = annulus & valid
+    annulus_valid = (
+        annulus
+        & finite_image
+        & valid_variance
+        & ~flagged_pixels(flags_crop, BACKGROUND_BAD_FLAG_BITS)
+    )
     aperture_coverage = (
         np.count_nonzero(aperture_valid) / max(1, np.count_nonzero(aperture))
     )
@@ -592,7 +603,10 @@ def aperture_measurement(image, flags, variance, header, ra, dec, radius):
     if aperture_coverage < 0.8:
         aperture_count = max(1, int(np.count_nonzero(aperture)))
         flagged_count = int(
-            np.count_nonzero(aperture & flagged_pixels(flags_crop))
+            np.count_nonzero(
+                aperture
+                & flagged_pixels(flags_crop, PHOTOMETRY_BAD_FLAG_BITS)
+            )
         )
         invalid_image_count = int(
             np.count_nonzero(aperture & ~np.isfinite(image_crop))
@@ -601,7 +615,7 @@ def aperture_measurement(image, flags, variance, header, ra, dec, radius):
             np.count_nonzero(
                 aperture
                 & np.isfinite(image_crop)
-                & (~np.isfinite(variance_crop) | (variance_crop < 0))
+                & (~np.isfinite(variance_crop) | (variance_crop <= 0))
             )
         )
         raw_flags = np.asarray(flags_crop[aperture], dtype=np.uint32)
@@ -1382,15 +1396,14 @@ if st.session_state["workspace"] == "Search & Results":
         search_status = st.empty()
         try:
             coord = SkyCoord(ra=ra, dec=dec, unit="deg")
-            search_status.markdown(
+            search_status.html(
                 render_loading_experience(
                     "coordinate",
                     "Scanning your sky coordinates",
                     "Contacting IRSA for matching SPHEREx observations. The archive does not provide a partial search percentage.",
                     ra=ra,
                     dec=dec,
-                ),
-                unsafe_allow_html=True,
+                )
             )
             new_results = query_sia_with_retries(
                 pos=(coord, 1 * u.arcsec),
@@ -1458,7 +1471,7 @@ if st.session_state["workspace"] == "Search & Results":
             if "date_utc" in results.colnames
             else []
         )
-        st.markdown(
+        st.html(
             render_loading_experience(
                 "retrieve",
                 f"IRSA returned {len(results)} observation record(s)",
@@ -1471,8 +1484,7 @@ if st.session_state["workspace"] == "Search & Results":
                 ra=search_context["ra"],
                 dec=search_context["dec"],
                 dates=retrieved_dates,
-            ),
-            unsafe_allow_html=True,
+            )
         )
 
         if len(results) == 0:
@@ -1763,7 +1775,7 @@ elif st.session_state["workspace"] == "Animation":
         observation_dates = [
             str(value) for value in band_results["date_utc"]
         ]
-        loading_status.markdown(
+        loading_status.html(
             render_loading_experience(
                 "retrieve",
                 "Your animation is getting ready",
@@ -1773,8 +1785,7 @@ elif st.session_state["workspace"] == "Animation":
                 ra=active_ra,
                 dec=active_dec,
                 dates=observation_dates,
-            ),
-            unsafe_allow_html=True,
+            )
         )
         failures = []
         aligned_frames = [None] * len(cutout_urls)
@@ -1824,7 +1835,7 @@ elif st.session_state["workspace"] == "Animation":
                                 for item in downloaded
                                 if item is not None
                             ]
-                            loading_status.markdown(
+                            loading_status.html(
                                 render_loading_experience(
                                     "retrieve",
                                     "Your animation is getting ready",
@@ -1842,8 +1853,7 @@ elif st.session_state["workspace"] == "Animation":
                                     focus_blur=(
                                         12 * (1 - .35 * completed_count / len(cutout_urls))
                                     ),
-                                ),
-                                unsafe_allow_html=True,
+                                )
                             )
                             last_wait_message = message_index
                     continue
@@ -1885,7 +1895,7 @@ elif st.session_state["workspace"] == "Animation":
                     for item in downloaded
                     if item is not None
                 ]
-                loading_status.markdown(
+                loading_status.html(
                     render_loading_experience(
                         "retrieve",
                         "Your animation is getting ready",
@@ -1903,8 +1913,7 @@ elif st.session_state["workspace"] == "Animation":
                         focus_blur=(
                             12 * (1 - .35 * completed_count / len(cutout_urls))
                         ),
-                    ),
-                    unsafe_allow_html=True,
+                    )
                 )
 
         if not failures:
@@ -1955,7 +1964,7 @@ elif st.session_state["workspace"] == "Animation":
                         for item in frame_metadata
                         if item is not None
                     ]
-                    loading_status.markdown(
+                    loading_status.html(
                         render_loading_experience(
                             "process",
                             "Bringing the real images into focus",
@@ -1971,8 +1980,7 @@ elif st.session_state["workspace"] == "Animation":
                             wavelengths=actual_wavelengths,
                             preview_data=preview_data,
                             focus_blur=7.8 * (1 - (index + 1) / len(cutout_urls)),
-                        ),
-                        unsafe_allow_html=True,
+                        )
                     )
                 except Exception as error:
                     failures.append(
@@ -1981,7 +1989,7 @@ elif st.session_state["workspace"] == "Animation":
                     break
 
         if failures:
-            loading_status.markdown(
+            loading_status.html(
                 render_loading_experience(
                     "process",
                     "Cassiopeia hit a snag while preparing a frame",
@@ -1991,8 +1999,7 @@ elif st.session_state["workspace"] == "Animation":
                     dates=observation_dates,
                     preview_data=preview_data,
                     error=True,
-                ),
-                unsafe_allow_html=True,
+                )
             )
 
         st.session_state["preload_failures"] = failures
@@ -2008,7 +2015,7 @@ elif st.session_state["workspace"] == "Animation":
                 for item in frame_metadata
                 if item is not None
             ]
-            loading_status.markdown(
+            loading_status.html(
                 render_loading_experience(
                     "spectrum",
                     "Reading the real wavelength samples",
@@ -2016,10 +2023,10 @@ elif st.session_state["workspace"] == "Animation":
                         "Each value below came from an aligned image’s FITS wavelength header. "
                         "The colored strip is the instrument reference, not a claim that the full cube was loaded."
                     ),
-                    progress_fraction=len(actual_wavelengths) / len(cutout_urls),
+                    progress_fraction=1,
                     progress_label=(
                         f"FITS wavelength headers read: {len(actual_wavelengths)} "
-                        f"of {len(cutout_urls)} images"
+                        f"of {len(cutout_urls)} images · channel guide spans 0.75–5.00 μm"
                     ),
                     ra=active_ra,
                     dec=active_dec,
@@ -2027,8 +2034,7 @@ elif st.session_state["workspace"] == "Animation":
                     wavelengths=actual_wavelengths,
                     preview_data=preview_data,
                     focus_blur=0,
-                ),
-                unsafe_allow_html=True,
+                )
             )
 
             sampled_values = []
@@ -2065,7 +2071,7 @@ elif st.session_state["workspace"] == "Animation":
                     valid = np.isfinite(frame)
                     stack_sum[valid] += frame[valid]
                     stack_count[valid] += 1
-                    loading_status.markdown(
+                    loading_status.html(
                         render_loading_experience(
                             "sequence",
                             "Cassiopeia is arranging the time sequence",
@@ -2081,8 +2087,7 @@ elif st.session_state["workspace"] == "Animation":
                             wavelengths=actual_wavelengths,
                             preview_data=preview_data,
                             focus_blur=0,
-                        ),
-                        unsafe_allow_html=True,
+                        )
                     )
                 mean_stack = np.full_like(stack_sum, np.nan)
                 np.divide(
@@ -2095,7 +2100,7 @@ elif st.session_state["workspace"] == "Animation":
                 st.session_state["prepared_signature"] = (
                     preparation_signature
                 )
-                loading_status.markdown(
+                loading_status.html(
                     render_loading_experience(
                         "sequence",
                         "Your time sequence is ready",
@@ -2115,8 +2120,7 @@ elif st.session_state["workspace"] == "Animation":
                         ],
                         preview_data=preview_data,
                         focus_blur=0,
-                    ),
-                    unsafe_allow_html=True,
+                    )
                 )
             else:
                 st.session_state["preload_failures"] = [
@@ -2188,7 +2192,7 @@ elif st.session_state["workspace"] == "Animation":
         play_col, pause_col, replay_col, previous_col, next_col = st.columns(5)
 
         if play_col.button(
-            "Play / resume",
+            "Play",
             disabled=st.session_state["playing"],
             use_container_width=True,
         ):
@@ -2209,7 +2213,7 @@ elif st.session_state["workspace"] == "Animation":
             st.session_state["playing"] = True
 
         if previous_col.button(
-            "Previous",
+            "Prev",
             disabled=st.session_state["playing"],
             use_container_width=True,
         ):
@@ -2535,7 +2539,9 @@ elif st.session_state["workspace"] == "Light Curve":
         "This is exploratory aperture photometry, not a confirmed target "
         "measurement. Nearby sources can blend at SPHEREx resolution. "
         "The aperture is not corrected for the fraction of the PSF outside "
-        "it, and background or PSF changes can affect the result."
+        "it, and background or PSF changes can affect the result. Image and "
+        "background pixels use separate masks based on the current IRSA "
+        "photometry flag guidance; flagged pixels are not all treated alike."
     )
 
     if st.button("Measure brightness for these dates", type="primary"):

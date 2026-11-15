@@ -6,7 +6,9 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 
-BAD_FLAG_BITS = (0, 1, 2, 6, 7, 9, 10, 11, 15, 17, 19)
+BAD_FLAG_BITS = (0, 1, 2, 6, 7, 9, 10, 11, 15, 17, 19, 20, 22, 25, 26, 27, 28, 29)
+PHOTOMETRY_BAD_FLAG_BITS = (2, 6, 9, 10, 11, 15, 17, 26, 27, 28, 29)
+BACKGROUND_BAD_FLAG_BITS = PHOTOMETRY_BAD_FLAG_BITS + (0, 1, 19, 21)
 
 
 @st.cache_data(show_spinner=False)
@@ -41,10 +43,10 @@ def load_cutout(url, ra, dec):
     return image, flags, metadata, header.copy()
 
 
-def flagged_pixels(flags):
+def flagged_pixels(flags, bits=BAD_FLAG_BITS):
     bad = np.zeros(flags.shape, dtype=bool)
 
-    for bit in BAD_FLAG_BITS:
+    for bit in bits:
         bad |= (flags & (1 << bit)) != 0
 
     return bad
