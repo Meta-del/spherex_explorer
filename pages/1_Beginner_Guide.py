@@ -224,7 +224,7 @@ targets = [
             "observations covered about two days, which is too short to "
             "expect obvious motion."
         ),
-        "Archive check": "119 QR3 image records in the latest preset check",
+        "Archive check": "Search the live IRSA archive for current coverage",
     },
     {
         "Target": "Epsilon Indi B",
@@ -234,7 +234,7 @@ targets = [
             "The close brown-dwarf pair is expected to appear blended "
             "at SPHEREx image resolution."
         ),
-        "Archive check": "120 QR3 image records in the latest preset check",
+        "Archive check": "Search the live IRSA archive for current coverage",
     },
     {
         "Target": "WISE 0855",
@@ -246,8 +246,8 @@ targets = [
             "predicted position at each date."
         ),
         "Archive check": (
-            "No images returned in the four tested QR2/QR3 wide "
-            "and deep collections"
+            "Current DR1 + QR3 search returns records; availability and "
+            "dates can change"
         ),
     },
     {
@@ -258,7 +258,7 @@ targets = [
             "The tested D3 records covered about 3.6 days, a short "
             "window for investigating variability."
         ),
-        "Archive check": "109 QR3 image records in the latest preset check",
+        "Archive check": "Search the live IRSA archive for current coverage",
     },
     {
         "Target": "R Draconis",
@@ -268,7 +268,7 @@ targets = [
             "The tested records in the selected band covered about "
             "27 days."
         ),
-        "Archive check": "126 QR3 image records in the latest preset check",
+        "Archive check": "Search the live IRSA archive for current coverage",
     },
 ]
 
@@ -279,9 +279,9 @@ st.dataframe(
 )
 
 st.caption(
-    "These counts are example results from checks in November 2026. "
-    "They count archive image records, not confirmed detections of the "
-    "named target, and can change as IRSA releases data."
+    "The app searches the current DR1 and QR3 collections live. Results are "
+    "archive image records, not confirmed detections of the named targets, "
+    "and can change as IRSA releases data."
 )
 
 st.info(

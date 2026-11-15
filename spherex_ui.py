@@ -9,6 +9,7 @@ PAGES = [
     ("compare", "02", "Compare", "pages/2_Compare_Images.py", "🌓"),
     ("findings", "03", "Findings", "pages/3_My_Findings.py", "📝"),
     ("guide", "04", "Guide", "pages/1_Beginner_Guide.py", "📘"),
+    ("about", "05", "About", "pages/4_About.py", "🌌"),
 ]
 
 
@@ -46,7 +47,7 @@ def render_page_header(active_page, title, subtitle):
     )
 
     with st.container(key="sky-top-nav"):
-        columns = st.columns([1, 1, 1.1, 0.9])
+        columns = st.columns([1, 1, 1.05, 0.9, 0.85])
         for column, item in zip(columns, PAGES):
             key, number, label, path, icon = item
             with column:

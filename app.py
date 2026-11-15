@@ -10,10 +10,12 @@ from html import escape
 from textwrap import dedent
 import matplotlib.pyplot as plt
 import numpy as np
+import requests
 import streamlit as st
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from astropy.io import fits
+from astropy.io import ascii, fits
+from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_area
@@ -246,29 +248,161 @@ def make_loading_preview(image):
 
 
 def query_sia_with_retries(*, attempts=3, **query_options):
-    retryable_phrases = (
-        "connection failed",
-        "temporarily unavailable",
-        "timed out",
-        "timeout",
-        "503",
-        "502",
-        "504",
-        "429",
-        "urlopen error",
+    coordinate, radius = query_options["pos"]
+    collections = query_options["collection"]
+    if isinstance(collections, str):
+        collections = [collections]
+    required_columns = [
+        "obs_id",
+        "t_min",
+        "t_max",
+        "energy_bandpassname",
+        "access_url",
+        "obs_collection",
+        "s_ra",
+        "s_dec",
+        "em_min",
+        "em_max",
+        "s_fov",
+        "dataproduct_type",
+    ]
+    parameters = [
+        ("COLLECTION", collection) for collection in collections
+    ]
+    parameters.extend(
+        [
+            (
+                "POS",
+                "circle "
+                f"{coordinate.ra.deg:.8f} "
+                f"{coordinate.dec.deg:.8f} "
+                f"{radius.to_value(u.deg):.10f}",
+            ),
+            ("DPTYPE", str(query_options.get("data_type", "image"))),
+            ("RESPONSEFORMAT", "CSV"),
+        ]
     )
+
     last_error = None
     for attempt in range(attempts):
         try:
-            return Irsa.query_sia(**query_options)
-        except Exception as error:
+            response = requests.get(
+                "https://irsa.ipac.caltech.edu/SIA",
+                params=parameters,
+                timeout=(8, 60),
+            )
+            response.raise_for_status()
+            reader = csv.reader(io.StringIO(response.text))
+            header = next(reader, [])
+            if not header or any(name not in header for name in required_columns):
+                raise ValueError(
+                    "IRSA SIA returned an unexpected CSV table."
+                )
+            positions = [header.index(name) for name in required_columns]
+            rows = []
+            for row in reader:
+                if len(row) > max(positions):
+                    rows.append([row[position] for position in positions])
+            table = Table(rows=rows, names=required_columns)
+            for name in (
+                "t_min",
+                "t_max",
+                "s_ra",
+                "s_dec",
+                "em_min",
+                "em_max",
+                "s_fov",
+            ):
+                table[name] = np.asarray(table[name], dtype=float)
+            return table
+        except (requests.RequestException, StopIteration, ValueError) as error:
             last_error = error
-            message = str(error).lower()
-            retryable = any(phrase in message for phrase in retryable_phrases)
-            if not retryable or attempt == attempts - 1:
+            if attempt == attempts - 1:
                 raise
             time.sleep(1.0 * (2 ** attempt))
     raise last_error
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def query_reference_catalog(catalog_id, ra, dec, radius_arcmin):
+    if catalog_id == "gaia_dr3_source":
+        columns = "source_id,ra,dec,ref_epoch,pmra,pmdec,phot_g_mean_mag"
+    elif catalog_id == "allwise_p3as_psd":
+        columns = "designation,ra,dec,w1mpro,w2mpro"
+    else:
+        raise ValueError("Unsupported reference catalog.")
+    response = requests.get(
+        "https://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-query",
+        params={
+            "catalog": catalog_id,
+            "spatial": "cone",
+            "radius": f"{float(radius_arcmin) * 60:.6f}",
+            "radunits": "arcsec",
+            "objstr": f"{float(ra):.8f} {float(dec):.8f}",
+            "outfmt": "1",
+            "outrows": "1500",
+            "selcols": columns,
+        },
+        timeout=(8, 35),
+    )
+    response.raise_for_status()
+    return ascii.read(response.text, format="ipac")
+
+
+def catalog_positions_at_epoch(table, catalog_id, observation_time):
+    ra_values = np.asarray(table["ra"], dtype=float)
+    dec_values = np.asarray(table["dec"], dtype=float)
+    positions = SkyCoord(ra=ra_values * u.deg, dec=dec_values * u.deg)
+    if catalog_id != "gaia_dr3_source" or observation_time is None:
+        return positions
+
+    required = ("pmra", "pmdec", "ref_epoch")
+    if not all(name in table.colnames for name in required):
+        return positions
+
+    pmra = np.ma.asarray(table["pmra"], dtype=float).filled(np.nan)
+    pmdec = np.ma.asarray(table["pmdec"], dtype=float).filled(np.nan)
+    epochs = np.ma.asarray(table["ref_epoch"], dtype=float).filled(np.nan)
+    valid = (
+        np.isfinite(ra_values)
+        & np.isfinite(dec_values)
+        & np.isfinite(pmra)
+        & np.isfinite(pmdec)
+        & np.isfinite(epochs)
+    )
+    if np.any(valid):
+        moving_positions = SkyCoord(
+            ra=ra_values[valid] * u.deg,
+            dec=dec_values[valid] * u.deg,
+            pm_ra_cosdec=pmra[valid] * u.mas / u.yr,
+            pm_dec=pmdec[valid] * u.mas / u.yr,
+            obstime=Time(epochs[valid], format="jyear"),
+            frame="icrs",
+        ).apply_space_motion(new_obstime=observation_time)
+        ra_values = ra_values.copy()
+        dec_values = dec_values.copy()
+        ra_values[valid] = moving_positions.ra.deg
+        dec_values[valid] = moving_positions.dec.deg
+        positions = SkyCoord(ra=ra_values * u.deg, dec=dec_values * u.deg)
+    return positions
+
+
+def parse_shared_search_params():
+    defaults = {
+        "ra": TARGETS["Custom coordinates"][0],
+        "dec": TARGETS["Custom coordinates"][1],
+        "fov_arcmin": 6,
+    }
+    try:
+        ra = float(st.query_params.get("ra", defaults["ra"]))
+        dec = float(st.query_params.get("dec", defaults["dec"]))
+        fov = int(float(st.query_params.get("fov_arcmin", defaults["fov_arcmin"])))
+    except (TypeError, ValueError):
+        return defaults, ""
+    if not (0 <= ra <= 360 and -90 <= dec <= 90 and 2 <= fov <= 20):
+        return defaults, ""
+    collections = str(st.query_params.get("collections", ""))
+    return {"ra": ra, "dec": dec, "fov_arcmin": fov}, collections
 
 
 def load_cutout_with_retries(url, ra, dec, attempts=3):
@@ -1153,18 +1287,35 @@ def render_cube_explorer(search_context):
                             )
 
 
+shared_search_params, shared_collections = parse_shared_search_params()
+shared_signature = (
+    shared_search_params["ra"],
+    shared_search_params["dec"],
+    shared_search_params["fov_arcmin"],
+    shared_collections,
+)
+shared_params_changed = (
+    st.session_state.get("loaded_shared_signature") != shared_signature
+)
+if shared_params_changed:
+    st.session_state["ra_input"] = shared_search_params["ra"]
+    st.session_state["dec_input"] = shared_search_params["dec"]
+    st.session_state["fov_arcmin"] = shared_search_params["fov_arcmin"]
+    st.session_state["target"] = "Custom coordinates"
+    st.session_state["loaded_shared_signature"] = shared_signature
+
 state_defaults = {
     "intro_complete": False,
     "target": "Custom coordinates",
-    "ra_input": TARGETS["Custom coordinates"][0],
-    "dec_input": TARGETS["Custom coordinates"][1],
+    "ra_input": shared_search_params["ra"],
+    "dec_input": shared_search_params["dec"],
     "collection_profile": None,
     "cube_results": None,
     "cube_results_context": None,
     "loaded_cube_url": None,
     "cube_spectrum": None,
     "cube_spectrum_key": None,
-    "fov_arcmin": 6,
+    "fov_arcmin": shared_search_params["fov_arcmin"],
     "results": None,
     "search_context": None,
     "frame_index": 0,
@@ -1185,6 +1336,9 @@ state_defaults = {
     "lightcurve_rows": None,
     "lightcurve_signature": None,
     "track_candidate_index": 0,
+    "catalog_overlay_tables": {},
+    "catalog_overlay_signature": None,
+    "catalog_overlay_failures": [],
 }
 
 for key, value in state_defaults.items():
@@ -1345,6 +1499,19 @@ if st.session_state["workspace"] == "Search & Results":
             st.error("No SPHEREx image collections are available right now.")
             st.stop()
 
+        if shared_params_changed and shared_collections:
+            requested_collections = set(shared_collections.split(","))
+            matched_profile = next(
+                (
+                    name
+                    for name, values in profiles.items()
+                    if set(values) == requested_collections
+                ),
+                None,
+            )
+            if matched_profile:
+                st.session_state["collection_profile"] = matched_profile
+
         if st.session_state["collection_profile"] not in profiles:
             st.session_state["collection_profile"] = profile_names[0]
 
@@ -1466,6 +1633,27 @@ if st.session_state["workspace"] == "Search & Results":
         st.divider()
         st.subheader("Observation results")
         st.metric("Observations found", len(results))
+        if st.button(
+            "Create shareable search link",
+            key="create_shareable_search_link",
+            help=(
+                "Adds this search position, field of view, and collection "
+                "to the browser address. The link pre-fills the search; "
+                "the recipient starts the IRSA search themselves."
+            ),
+        ):
+            st.query_params["ra"] = str(search_context["ra"])
+            st.query_params["dec"] = str(search_context["dec"])
+            st.query_params["fov_arcmin"] = str(
+                search_context["fov_arcmin"]
+            )
+            st.query_params["collections"] = ",".join(
+                search_context["collections"]
+            )
+            st.success(
+                "Search link ready. Copy the browser address to share it. "
+                "The link opens with these search settings filled in."
+            )
         retrieved_dates = (
             [str(value) for value in results["date_utc"]]
             if "date_utc" in results.colnames
@@ -1750,12 +1938,13 @@ elif st.session_state["workspace"] == "Animation":
     with controls_col2:
         st.selectbox(
             "Playback pace",
-            options=[0.5, 0.75, 1.0, 1.5],
+            options=[0.5, 0.75, 1.0, 1.5, 2.0],
             format_func=lambda seconds: {
                 0.5: "Fast · 0.5 sec",
                 0.75: "Medium · 0.75 sec",
                 1.0: "Relaxed · 1 sec",
                 1.5: "Slow · 1.5 sec",
+                2.0: "Cinematic · 2 sec",
             }[seconds],
             key="playback_interval",
         )
@@ -2188,6 +2377,98 @@ elif st.session_state["workspace"] == "Animation":
         )
         st.stop()
 
+    catalog_choices = {
+        "Gaia DR3 star catalog": "gaia_dr3_source",
+        "WISE AllWISE infrared catalog": "allwise_p3as_psd",
+    }
+    with st.expander("Optional Gaia / WISE reference overlays"):
+        st.caption(
+            "These are catalog positions plotted over the SPHEREx image. "
+            "They help you inspect known sources; they do not confirm that "
+            "a catalog object is the changing source. Gaia positions with "
+            "proper motions are propagated to each observation date. Up to "
+            "500 closest catalog markers are drawn to keep crowded fields readable."
+        )
+        selected_catalog_labels = st.multiselect(
+            "Catalog layers",
+            list(catalog_choices),
+            key="selected_catalog_overlays",
+            help=(
+                "Queries a cone covering the selected square field of view. "
+                "Results are cached for six hours."
+            ),
+        )
+        if st.button(
+            "Load catalog references",
+            disabled=not selected_catalog_labels,
+            key="load_catalog_references",
+        ):
+            overlay_signature = (
+                active_ra,
+                active_dec,
+                float(fov_arcmin),
+                tuple(
+                    catalog_choices[label]
+                    for label in selected_catalog_labels
+                ),
+            )
+            catalog_tables = {}
+            catalog_failures = []
+            radius_arcmin = float(fov_arcmin) / np.sqrt(2)
+            with st.spinner(
+                "Querying IRSA catalogs for sources in this field…"
+            ):
+                for label in selected_catalog_labels:
+                    catalog_id = catalog_choices[label]
+                    try:
+                        catalog_tables[catalog_id] = query_reference_catalog(
+                            catalog_id,
+                            active_ra,
+                            active_dec,
+                            radius_arcmin,
+                        )
+                    except Exception as error:
+                        catalog_failures.append(
+                            f"{label}: {str(error).splitlines()[0][:240]}"
+                        )
+            st.session_state["catalog_overlay_tables"] = catalog_tables
+            st.session_state["catalog_overlay_signature"] = overlay_signature
+            st.session_state["catalog_overlay_failures"] = catalog_failures
+            if catalog_failures:
+                st.warning(
+                    "One or more catalogs could not be loaded. You can still "
+                    "use the SPHEREx images and retry the catalog query."
+                )
+            else:
+                st.success(
+                    "Catalog query complete. Available reference positions "
+                    "will appear on the animation frames."
+                )
+
+    current_overlay_signature = (
+        active_ra,
+        active_dec,
+        float(fov_arcmin),
+        tuple(
+            catalog_choices[label]
+            for label in selected_catalog_labels
+        ),
+    )
+    active_overlay_tables = (
+        st.session_state.get("catalog_overlay_tables", {})
+        if st.session_state.get("catalog_overlay_signature")
+        == current_overlay_signature
+        else {}
+    )
+    if st.session_state.get("catalog_overlay_failures"):
+        for catalog_failure in st.session_state["catalog_overlay_failures"]:
+            st.caption(catalog_failure)
+    overlay_wcs = WCS(
+        fits.Header.fromstring(
+            st.session_state["prepared_wcs_header"], sep="\n"
+        )
+    ).celestial
+
     with st.container(key="animation-playback-controls"):
         play_col, pause_col, replay_col, previous_col, next_col = st.columns(5)
 
@@ -2311,6 +2592,68 @@ elif st.session_state["workspace"] == "Animation":
                 linewidths=2,
                 color="red",
             )
+            if active_overlay_tables:
+                try:
+                    observation_time = Time(
+                        str(metadata["image_date"]), scale="utc"
+                    )
+                except Exception:
+                    observation_time = None
+                for catalog_id, catalog_table in active_overlay_tables.items():
+                    if len(catalog_table) == 0:
+                        continue
+                    sky_positions = catalog_positions_at_epoch(
+                        catalog_table,
+                        catalog_id,
+                        observation_time,
+                    )
+                    overlay_x, overlay_y = overlay_wcs.world_to_pixel(
+                        sky_positions
+                    )
+                    valid_overlay = (
+                        np.isfinite(overlay_x)
+                        & np.isfinite(overlay_y)
+                        & (overlay_x >= 0)
+                        & (overlay_y >= 0)
+                        & (overlay_x < frame.shape[1])
+                        & (overlay_y < frame.shape[0])
+                    )
+                    valid_indices = np.flatnonzero(valid_overlay)
+                    if len(valid_indices) > 500:
+                        separations = sky_positions[valid_indices].separation(
+                            SkyCoord(
+                                ra=active_ra,
+                                dec=active_dec,
+                                unit="deg",
+                            )
+                        ).arcsec
+                        valid_indices = valid_indices[
+                            np.argsort(separations)[:500]
+                        ]
+                    if catalog_id == "gaia_dr3_source":
+                        axis.scatter(
+                            np.asarray(overlay_x)[valid_indices],
+                            np.asarray(overlay_y)[valid_indices],
+                            marker="o",
+                            s=30,
+                            facecolors="none",
+                            edgecolors="#45dcff",
+                            linewidths=0.8,
+                            alpha=0.9,
+                            label="Gaia DR3 positions",
+                        )
+                    else:
+                        axis.scatter(
+                            np.asarray(overlay_x)[valid_indices],
+                            np.asarray(overlay_y)[valid_indices],
+                            marker="s",
+                            s=34,
+                            facecolors="none",
+                            edgecolors="#ffb454",
+                            linewidths=0.9,
+                            alpha=0.9,
+                            label="WISE AllWISE positions",
+                        )
             if candidates:
                 axis.scatter(
                     [candidate["x_pixel"] for candidate in candidates],
@@ -2324,11 +2667,19 @@ elif st.session_state["workspace"] == "Animation":
             axis.set_title(
                 f"{metadata['wavelength_um']:.3f} μm"
             )
+            if active_overlay_tables:
+                axis.legend(
+                    loc="upper right",
+                    fontsize=7,
+                    facecolor="#080d12",
+                    edgecolor="#5c6b78",
+                    labelcolor="#eff5ff",
+                )
             axis.set_xticks([])
             axis.set_yticks([])
             figure.tight_layout(pad=1)
 
-            with st.container(key="animation-frame-image"):
+            with st.container(key=f"animation-frame-image-{index}"):
                 st.pyplot(
                     figure,
                     use_container_width=False,
@@ -2395,6 +2746,31 @@ elif st.session_state["workspace"] == "Animation":
             ) % len(band_results)
 
     show_frame()
+
+    if active_overlay_tables:
+        with st.expander("Catalog reference results"):
+            for catalog_id, catalog_table in active_overlay_tables.items():
+                catalog_title = (
+                    "Gaia DR3" if catalog_id == "gaia_dr3_source"
+                    else "WISE AllWISE"
+                )
+                st.markdown(f"**{catalog_title}: {len(catalog_table)} sources returned**")
+                if len(catalog_table):
+                    if len(catalog_table) == 1500:
+                        st.caption(
+                            "The catalog query reached its 1,500-row safety "
+                            "limit; additional catalog sources may exist."
+                        )
+                    st.dataframe(
+                        catalog_table[:100].to_pandas(),
+                        hide_index=True,
+                        use_container_width=True,
+                    )
+                    if len(catalog_table) > 100:
+                        st.caption(
+                            "Showing the first 100 table rows. Up to 1,500 "
+                            "closest catalog positions are drawn on each frame."
+                        )
 
     with st.expander("View an exploratory mean stack of all prepared dates"):
         st.write(
