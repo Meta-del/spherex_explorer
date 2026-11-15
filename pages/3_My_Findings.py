@@ -20,6 +20,13 @@ render_page_header(
     "Review the observations you compared and download a record of your notes.",
 )
 
+st.page_link(
+    "app.py",
+    label="← Back to Explore and Animate",
+    icon="🔭",
+    use_container_width=True,
+)
+
 st.caption(
     "Findings stay in this browser session. Download a CSV or text report "
     "if you want to keep a copy."
@@ -61,6 +68,21 @@ if not findings:
         "No findings saved yet. Compare two observations, then save a finding "
         "from the Compare Images page."
     )
+    empty_col1, empty_col2 = st.columns(2)
+    with empty_col1:
+        st.page_link(
+            "pages/2_Compare_Images.py",
+            label="Compare observations",
+            icon="🌓",
+            use_container_width=True,
+        )
+    with empty_col2:
+        st.page_link(
+            "app.py",
+            label="Explore and animate images",
+            icon="🔭",
+            use_container_width=True,
+        )
 else:
     st.write(f"Saved findings: **{len(findings)}**")
 

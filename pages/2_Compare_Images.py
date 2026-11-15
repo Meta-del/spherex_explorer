@@ -47,13 +47,8 @@ def make_shared_stretch(image_a, image_b):
         high = low + 1
 
     def stretch(data):
-        data = np.nan_to_num(
-            data,
-            nan=low,
-            posinf=high,
-            neginf=low,
-        )
-        return np.clip((data - low) / (high - low), 0, 1)
+        normalized = np.clip((data - low) / (high - low), 0, 1)
+        return np.where(np.isfinite(data), normalized, np.nan)
 
     return stretch(image_a), stretch(image_b)
 
@@ -65,6 +60,7 @@ def draw_observation(
     label,
     wavelength_um,
     figsize=(5, 5),
+    interpolation="nearest",
 ):
     x, y = wcs.world_to_pixel(sky_position)
     background = "#050712"
@@ -84,6 +80,7 @@ def draw_observation(
         cmap=color_map,
         vmin=0,
         vmax=1,
+        interpolation=interpolation,
     )
     axis.scatter(
         x,
@@ -157,6 +154,20 @@ render_page_header(
     "then record what you noticed.",
 )
 
+back_col, description_col = st.columns([1, 3])
+with back_col:
+    if st.button(
+        "← Back to the animation",
+        use_container_width=True,
+        key="compare_back_to_animation",
+    ):
+        st.session_state["workspace"] = "Animation"
+        st.switch_page("app.py")
+with description_col:
+    st.caption(
+        "Return to the time-lapse whenever you want to keep exploring the "
+        "observations."
+    )
 
 st.subheader("1 · Choose two observations")
 
@@ -253,7 +264,7 @@ cutout_a = make_cutout_url(url_a, ra, dec, cutout_size_deg)
 cutout_b = make_cutout_url(url_b, ra, dec, cutout_size_deg)
 
 try:
-    with st.spinner("Loading the two SPHEREx cutouts…"):
+    with st.spinner("Cassiopeia is fetching your two SPHEREx cutouts…"):
         image_a, flags_a, metadata_a, header_a = load_cutout(
             cutout_a, ra, dec
         )
@@ -280,6 +291,24 @@ st.write(
     "Nearby stars can help you judge whether the images line up."
 )
 
+render_mode = st.radio(
+    "Image rendering",
+    ["Smoothed · visual preview", "Pixelated · native pixels"],
+    horizontal=True,
+    key="compare_render_mode",
+    help=(
+        "This changes only how pixels are drawn. It does not alter FITS data, "
+        "the difference calculation, or measurements."
+    ),
+)
+render_interpolation = (
+    "nearest" if render_mode.startswith("Pixelated") else "bilinear"
+)
+st.caption(
+    "Use native pixels for scientific inspection; smoothing is a display aid "
+    "that can make the image easier to view but adds no detail."
+)
+
 view_mode = st.radio(
     "Image view",
     ["Side by side", "Blink between images"],
@@ -298,6 +327,7 @@ if view_mode == "Side by side":
             sky_position,
             observation_label(band_results, index_a),
             metadata_a["wavelength_um"],
+            interpolation=render_interpolation,
         )
 
     with image_col_b:
@@ -307,6 +337,7 @@ if view_mode == "Side by side":
             sky_position,
             observation_label(band_results, index_b),
             metadata_b["wavelength_um"],
+            interpolation=render_interpolation,
         )
 
 else:
@@ -366,6 +397,7 @@ else:
                     observation_label(band_results, index_a),
                     metadata_a["wavelength_um"],
                     figsize=(3.5, 3.5),
+                    interpolation=render_interpolation,
                 )
             else:
                 draw_observation(
@@ -375,6 +407,7 @@ else:
                     observation_label(band_results, index_b),
                     metadata_b["wavelength_um"],
                     figsize=(3.5, 3.5),
+                    interpolation=render_interpolation,
                 )
 
         st.caption(
@@ -464,22 +497,32 @@ else:
         )
 
         with difference_col2:
-            figure, axis = plt.subplots(figsize=(5, 5))
+            background = "#050712"
+            figure, axis = plt.subplots(
+                figsize=(5, 5),
+                facecolor=background,
+            )
+            axis.set_facecolor(background)
+            difference_map = plt.get_cmap("RdBu_r").copy()
+            difference_map.set_bad(background)
             plot = axis.imshow(
-                difference,
+                np.ma.masked_invalid(difference),
                 origin="lower",
-                cmap="RdBu_r",
+                cmap=difference_map,
                 vmin=-limit,
                 vmax=limit,
+                interpolation=render_interpolation,
             )
-            axis.set_title("Observation A − Observation B")
+            axis.set_title("Observation A − Observation B", color="#f3f7ff")
             axis.set_xticks([])
             axis.set_yticks([])
-            figure.colorbar(
+            colorbar = figure.colorbar(
                 plot,
                 ax=axis,
                 label=f"Pixel difference ({metadata_a['units']})",
             )
+            colorbar.ax.yaxis.label.set_color("#f3f7ff")
+            colorbar.ax.tick_params(colors="#f3f7ff")
             figure.tight_layout()
 
             st.pyplot(
